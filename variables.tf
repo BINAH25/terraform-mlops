@@ -23,6 +23,16 @@ variable "domain_name" {
   type = string
 }
 
-variable "alternative_names" {
-  type = list(string)
+
+variable "account_id" {
+  type = string
 }
+ 
+variable "loki_url" {
+  type = string
+}
+
+variable "token" {
+  type = string
+}
+

@@ -27,41 +27,6 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# --------------------------------------------
-# IAM Role Policy for ECS Task
-# Grants access to Bedrock and S3 bucket
-# --------------------------------------------
-resource "aws_iam_role_policy" "ecs_task_permissions" {
-  name = "${var.service_name}-ecs-task-permissions"
-  role = aws_iam_role.ecs_task_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      # Bedrock Access Permissions
-      {
-        Effect = "Allow",
-        Action = [
-          "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream"
-        ],
-        Resource = "*"  
-      },
-
-      # S3 Access Permissions for a specific bucket
-      {
-        Effect = "Allow",
-        Action = "s3:*", 
-        Resource = [
-          "arn:aws:s3:::phase3-snapservice-development-bucket",
-          "arn:aws:s3:::phase3-snapservice-development-bucket/*",
-          "arn:aws:s3:::phase3-snapservice-production-bucket",
-          "arn:aws:s3:::phase3-snapservice-production-bucket/*"
-        ]
-      }
-    ]
-  })
-}
 
 # --------------------------------------------
 # IAM Role for ECS Task

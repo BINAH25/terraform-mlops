@@ -70,8 +70,8 @@ resource "aws_iam_policy" "secrets_and_s3_policy" {
           "logs:DescribeLogStreams"
         ],
         Resource = [
-          "arn:aws:logs:eu-west-1:414392949441:log-group:loki-logs-group",
-          "arn:aws:logs:eu-west-1:414392949441:log-group:loki-logs-group:*"
+          "arn:aws:logs:eu-west-1:711387121692:log-group:loki-logs-group",
+          "arn:aws:logs:eu-west-1:711387121692:log-group:loki-logs-group:*"
         ]
       }
     ]

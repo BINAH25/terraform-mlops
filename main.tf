@@ -10,6 +10,20 @@ module "ecs_cluster" {
   cluster_name = var.cluster_name
 }
 
+# Create service discovery for internal communication
+
+module "service_discovery" {
+  source         = "./modules/namespace"
+  namespace_name = "mlops.internal"
+  vpc_id         = module.vpc.vpc_id
+  description    = "Service discovery for MyApp"
+
+  tags = {
+    Environment = "Prod"
+    Project     = "mlops"
+  }
+}
+
 # Create all required security groups (ALB, ECS, etc.) within the VPC
 # ALB Security Group
 module "alb_sg" {
@@ -134,32 +148,33 @@ module "monitoring_sg" {
   ]
 }
 
-# module "route53" {
-#   source       = "./modules/route53"
-#   domain_name  = var.domain_name
-#   alb_dns_name = module.alb.dns_name
-#   alb_zone_id  = module.alb.alb_zone_id
-# }
+module "route53" {
+  source       = "./modules/route53"
+  domain_name  = var.domain_name
+  alb_dns_name = module.alb.alb_dns_name
+  alb_zone_id  = module.alb.alb_zone_id
+}
 
 
-# module "alb" {
-#   source            = "./modules/alb"
-#   name              = "mlops-alb"
-#   security_groups   = [module.alb_sg.security_group_id]
-#   subnets           = module.vpc.public_subnet_ids
-#   vpc_id            = module.vpc.vpc_id
-#   target_group_name = "mlops-tg"
-#   health_check_path = "/"
-#   acm_cert_arn      = module.acm.acm_cert_arn
-# }
+module "alb" {
+  source            = "./modules/alb"
+  name              = "mlops-alb"
+  security_groups   = [module.alb_sg.security_group_id]
+  subnets           = module.vpc.public_subnet_ids
+  vpc_id            = module.vpc.vpc_id
+  target_group_name = "mlops-tg"
+  health_check_path = "/"
+  target_group_port = 8000
+  acm_cert_arn      = module.acm.acm_cert_arn
+}
 
-# # Request and validate ACM SSL certificate for HTTPS
-# module "acm" {
-#   source            = "./modules/acm"
-#   domain_name       = var.domain_name
-#   hosted_zone_id    = module.route53.hosted_zone_id
-#   alternative_names = []
-# }
+# Request and validate ACM SSL certificate for HTTPS
+module "acm" {
+  source            = "./modules/acm"
+  domain_name       = var.domain_name
+  hosted_zone_id    = module.route53.hosted_zone_id
+  alternative_names = []
+}
 
 
 module "ec2" {
@@ -168,5 +183,32 @@ module "ec2" {
   security_group_ids = [module.monitoring_sg.security_group_id]
   instance_name = "prometheus-grafana"
   key_name = "mlops"
-  user_data_install_docker = file("../scripts/install_docker.sh")
+  user_data_install_docker = file("./scripts/install_docker.sh")
+}
+
+# Create Frontend Service
+module "fast_api" {
+  source                 = "./modules/ecs"
+  service_name           = "fast-api"
+  cluster_name           = module.ecs_cluster.cluster_id
+  enable_alb             = true
+  task_family            = "fast-api-task"
+  container_image        = "${var.account_id}.dkr.ecr.eu-west-1.amazonaws.com/network-security:latest"
+  container_port         = 8000
+  desired_count          = 1
+  subnet_ids             = module.vpc.public_subnet_ids
+  security_group_ids     = [module.ecs_frontend_sg.security_group_id]
+  target_group_arn       = module.alb.target_group_arn
+  aws_region             = var.region
+  log_group_name         = "/ecs/fast-api"
+  loki_url               = var.loki_url
+  service_discovery_name = "api"
+  namespace_id           = module.service_discovery.namespace_id
+
+   environment_variables = [
+    {
+        name = "DAGSHUB_USER_TOKEN"
+        value = var.token
+    }
+  ]
 }
